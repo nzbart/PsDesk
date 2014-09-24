@@ -150,6 +150,11 @@ void loop()
   if (moving) {
     leftMotor.Move(moveDirection, maxSpeed - (-1 * moveDirection * leftLevelBias));
     rightMotor.Move(moveDirection, maxSpeed - (-1 * moveDirection * rightLevelBias));
+    
+    if (abs(currentLevel - desiredLevel) > 20) {
+      stopMove();
+      Serial.println("OUT_OF_LEVEL");
+    }
   }
 }
 
