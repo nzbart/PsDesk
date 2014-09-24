@@ -27,6 +27,10 @@
 #define SONAR_ECHO_PIN 12
 
 #define TIMER_DIVISOR 64
+#define K_P 1.5
+#define K_I 0.8
+#define K_D 0.05
+#define OUT_OF_LEVEL_TRIP 7
 
 MotorDriver leftMotor(LEFT_MOTOR_ENABLE_PIN_A, LEFT_MOTOR_ENABLE_PIN_B,
                       LEFT_MOTOR_ISENSE_PIN_A, LEFT_MOTOR_ISENSE_PIN_B,
@@ -45,10 +49,11 @@ double currentLevel = 0;
 double desiredLevel = readDesiredLevelFromEeprom();
 double leftLevelBias = 0;
 double rightLevelBias = 0;
+double levelBias;
 Interval pidInterval(50, TIMER_DIVISOR);
 
-PID leftPID(&currentLevel, &leftLevelBias, &desiredLevel, 1, 0.05, 0.25, DIRECT);
-PID rightPID(&currentLevel, &rightLevelBias, &desiredLevel, 1, 0.05, 0.25, REVERSE);
+PID leftPID(&currentLevel, &leftLevelBias, &desiredLevel, K_P, K_I, K_D, DIRECT);
+PID rightPID(&currentLevel, &rightLevelBias, &desiredLevel, K_P, K_I, K_D, REVERSE);
 
 void setup()
 {   
@@ -62,7 +67,9 @@ void setup()
   Serial.begin(19200);
   analogReference(EXTERNAL);
   
+  leftPID.SetOutputLimits(0, 40);
   leftPID.SetMode(AUTOMATIC); 
+  rightPID.SetOutputLimits(0, 40);
   rightPID.SetMode(AUTOMATIC); 
 }
 
@@ -85,6 +92,9 @@ bool writeLevelInfo = false;
 
 void loop()
 {
+  leftMotor.Sense();
+  rightMotor.Sense();
+  
   while (Serial.available() > 0) {
     byte cmd = Serial.read();
     String s;
@@ -138,20 +148,34 @@ void loop()
   heartbeat(writeLevelInfo);
   
   if (!leftMotor.IsMoving() && !rightMotor.IsMoving() && moving) {
-    moving = false;
-    Serial.println("MOVE-COMPLETE");
+    //stopMove();
+    //Serial.println("MOVE-COMPLETE");
   }
   
-  if (pidInterval.elapsed()) {
+  if (moving && pidInterval.elapsed()) {
     leftPID.Compute();
     rightPID.Compute();
+    
+    levelBias = leftLevelBias - rightLevelBias;
+    
+      int avgSpeed = (minSpeed + maxSpeed) / 2;
+      int leftSpeed = constrain(avgSpeed + (moveDirection * levelBias), minSpeed, maxSpeed);
+      int rightSpeed = constrain(avgSpeed - (moveDirection * levelBias), minSpeed, maxSpeed);
+      leftMotor.Move(moveDirection, leftSpeed);
+      rightMotor.Move(moveDirection, rightSpeed);
+      
+      String s = "l=";
+      s += (int)leftSpeed;
+      s += ", r=";
+      s += (int)rightSpeed;
+      s += ", bias=";
+      s += (int)levelBias;
+      Serial.println(s);
+    
   }
   
   if (moving) {
-    leftMotor.Move(moveDirection, maxSpeed - (-1 * moveDirection * leftLevelBias));
-    rightMotor.Move(moveDirection, maxSpeed - (-1 * moveDirection * rightLevelBias));
-    
-    if (abs(currentLevel - desiredLevel) > 20) {
+    if (abs(currentLevel - desiredLevel) > OUT_OF_LEVEL_TRIP) {
       stopMove();
       Serial.println("OUT_OF_LEVEL");
     }

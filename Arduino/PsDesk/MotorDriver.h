@@ -13,11 +13,16 @@ class MotorDriver {
     int PWMPin2;
     bool reversed;
     
+    unsigned long currentSum;
+    unsigned long currentSampleCount;
+    int currentAverage;
+    
   public:
     MotorDriver(int leftEnablePin, int rightEnablePin, int leftCurrentSensePin, int rightCurrentSensePin, int leftPwmPin, int rightPwmPin, bool reversed);
     bool IsMoving();
     void Move(int direction, byte speed);
     void StopMove();
+    void Sense();
 };
 
 #endif

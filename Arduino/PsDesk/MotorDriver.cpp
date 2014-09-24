@@ -1,5 +1,6 @@
 #include "MotorDriver.h"
 #include <Wire.h>
+#include "Interval.h"
 
 MotorDriver::MotorDriver(int leftEnablePin, int rightEnablePin, int leftCurrentSensePin, int rightCurrentSensePin, int leftPwmPin, int rightPwmPin, bool reversed) {
   this->enablePin1 = leftEnablePin;
@@ -22,9 +23,7 @@ MotorDriver::MotorDriver(int leftEnablePin, int rightEnablePin, int leftCurrentS
 }
 
 bool MotorDriver::IsMoving() {
-  int i1 = analogRead(currentSensePin1);
-  int i2 = analogRead(currentSensePin2);
-  return ((i1 > 50) || (i2 > 50));
+  return (currentAverage > 50);
 }
 
 void MotorDriver::Move(int direction, byte speed) {
@@ -55,3 +54,15 @@ void MotorDriver::StopMove() {
   analogWrite(PWMPin2, 0);
 }
 
+Interval motorSenseInterval(5, 64);
+void MotorDriver::Sense() {
+  currentSum += analogRead(currentSensePin1);
+  currentSum += analogRead(currentSensePin2);
+  currentSampleCount++;
+  
+  if (motorSenseInterval.elapsed()) {
+    currentAverage = ((double)currentSum / (double)currentSampleCount);
+    currentSampleCount = 0;
+    currentSum = 0;
+  }
+}
