@@ -3,6 +3,7 @@
 #include <EEPROM.h>
 #include "MotorDriver.h"
 #include "Interval.h"
+#include "Sonar.h"
 
 #define LEFT_MOTOR_REVERSED false
 #define RIGHT_MOTOR_REVERSED true
@@ -23,14 +24,15 @@
 
 #define ACCELEROMETER_SENSE_PIN 5
 
-#define SONAR_TRIGGER_PIN 13
-#define SONAR_ECHO_PIN 12
+#define SONAR_TRIGGER_PIN 2
+#define SONAR_ECHO_PIN 7
 
 #define TIMER_DIVISOR 64
-#define K_P 1.5
+#define K_P 1.2
 #define K_I 0.8
-#define K_D 0.05
-#define OUT_OF_LEVEL_TRIP 7
+#define K_D 0.6
+#define OUT_OF_LEVEL_TRIPLEVEL 5
+#define OUT_OF_LEVEL_TRIPTIME 500
 
 MotorDriver leftMotor(LEFT_MOTOR_ENABLE_PIN_A, LEFT_MOTOR_ENABLE_PIN_B,
                       LEFT_MOTOR_ISENSE_PIN_A, LEFT_MOTOR_ISENSE_PIN_B,
@@ -42,7 +44,9 @@ MotorDriver rightMotor(RIGHT_MOTOR_ENABLE_PIN_A, RIGHT_MOTOR_ENABLE_PIN_B,
                        RIGHT_MOTOR_PWN_PIN_A, RIGHT_MOTOR_PWN_PIN_B, 
                        RIGHT_MOTOR_REVERSED);
 
-byte minSpeed = 127, maxSpeed = 200;
+Sonar sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN);
+
+byte minSpeed = 127, maxSpeed = 255;
 int moveDirection = 0;
 bool moving = false;
 double currentLevel = 0;
@@ -50,6 +54,10 @@ double desiredLevel = readDesiredLevelFromEeprom();
 double leftLevelBias = 0;
 double rightLevelBias = 0;
 double levelBias;
+
+unsigned long height = 0;
+unsigned long desiredHeight = 0;
+
 Interval pidInterval(50, TIMER_DIVISOR);
 
 PID leftPID(&currentLevel, &leftLevelBias, &desiredLevel, K_P, K_I, K_D, DIRECT);
@@ -61,7 +69,7 @@ void setup()
   TCCR0B = TCCR0B & B11111000 | B00000001;
   TCCR1B = TCCR1B & B11111000 | B00000001;
   TCCR2B = TCCR2B & B11111000 | B00000001;
-  
+   
   stopMove();
 
   Serial.begin(19200);
@@ -80,7 +88,17 @@ void stopMove() {
   moveDirection = 0;
 }
 
-void setMove(int direction) {
+void setMove() {
+  int direction = 0;
+  if (height < desiredHeight) {
+    direction = 1;
+  }
+  else if (height > desiredHeight) {
+    direction = -1;
+  } else {
+    return;
+  }
+  
   moveDirection = direction;
   leftMotor.Move(direction, maxSpeed);
   rightMotor.Move(direction, maxSpeed);
@@ -89,11 +107,23 @@ void setMove(int direction) {
 }
 
 bool writeLevelInfo = false;
+Interval outOfLevelCheckInterval(OUT_OF_LEVEL_TRIPTIME, 64);
 
 void loop()
 {
   leftMotor.Sense();
   rightMotor.Sense();
+  
+  sonar.Run();
+  if (sonar.MeasurementAvailable()) {
+    height = sonar.GetLastMeasurement();
+    
+    if (writeLevelInfo) {
+      String l = "SONAR=";
+      l += height;
+      Serial.println(l);
+    }
+  }
   
   while (Serial.available() > 0) {
     byte cmd = Serial.read();
@@ -106,14 +136,11 @@ void loop()
         Serial.println("OK: Stop");
         break;
         
-      case 'U': // Move up
-        setMove(1);
-        Serial.println("OK: MoveUp");
-        break;
-        
-      case 'D': // Move down
-        setMove(-1);
-        Serial.println("OK: MoveDown");
+      case 'M': // Move
+        desiredHeight = Serial.parseInt();
+        setMove();
+        s = "OK: MoveTo=";
+        s += desiredHeight;
         break;
         
       case 'F': // Feed level data continuously
@@ -135,7 +162,7 @@ void loop()
 
       case 'I': // Get desired level from EEPROM and output
         desiredLevel = readDesiredLevelFromEeprom();
-        s = String("OK: DesiredLevel=") + desiredLevel;
+        s = String("OK: DesiredLevel=") + desiredLevel + " DesiredHeight=" + desiredHeight;
         Serial.println(s);       
         break;
         
@@ -158,26 +185,38 @@ void loop()
     
     levelBias = leftLevelBias - rightLevelBias;
     
-      int avgSpeed = (minSpeed + maxSpeed) / 2;
-      int leftSpeed = constrain(avgSpeed + (moveDirection * levelBias), minSpeed, maxSpeed);
-      int rightSpeed = constrain(avgSpeed - (moveDirection * levelBias), minSpeed, maxSpeed);
-      leftMotor.Move(moveDirection, leftSpeed);
-      rightMotor.Move(moveDirection, rightSpeed);
-      
-      String s = "l=";
-      s += (int)leftSpeed;
-      s += ", r=";
-      s += (int)rightSpeed;
-      s += ", bias=";
-      s += (int)levelBias;
-      Serial.println(s);
-    
+    int avgSpeed = (minSpeed + maxSpeed) / 2;
+    int leftSpeed = constrain(avgSpeed + (moveDirection * levelBias), minSpeed, maxSpeed);
+    int rightSpeed = constrain(avgSpeed - (moveDirection * levelBias), minSpeed, maxSpeed);
+    leftMotor.Move(moveDirection, leftSpeed);
+    rightMotor.Move(moveDirection, rightSpeed);
+    /*
+    String s = "l=";
+    s += (int)leftSpeed;
+    s += ", r=";
+    s += (int)rightSpeed;
+    s += ", bias=";
+    s += (int)levelBias;
+    Serial.println(s);*/
   }
   
   if (moving) {
-    if (abs(currentLevel - desiredLevel) > OUT_OF_LEVEL_TRIP) {
+    if (moveDirection < 0 && height <= desiredHeight) {
       stopMove();
-      Serial.println("OUT_OF_LEVEL");
+      Serial.println("MOVE-COMPLETE");
+      
+    } else if (moveDirection > 0 && height >= desiredHeight) {
+      stopMove();
+      Serial.println("MOVE-COMPLETE");
+    }
+    
+    if (abs(currentLevel - desiredLevel) > OUT_OF_LEVEL_TRIPLEVEL) {
+      if (outOfLevelCheckInterval.elapsed()) {
+        stopMove();
+        Serial.println("OUT_OF_LEVEL");
+      }
+    } else {
+      outOfLevelCheckInterval.reset();
     }
   }
 }
@@ -208,15 +247,7 @@ void heartbeat(bool writeLevelInfo) {
   }
   
   if (heartbeatInterval.elapsed()) {
-    String s("PSDESK level=");
-    s += currentLevel;
-    s += " d_level=";
-    s += desiredLevel;
-    s += " left_bias=";
-    s += leftLevelBias;
-    s += " right_bias=";
-    s += rightLevelBias;
-    s += " sonar=N/A";
+    String s("PSDESK");
     Serial.println(s);    
   }
 }

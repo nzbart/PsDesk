@@ -9,9 +9,13 @@ Interval::Interval(unsigned long milliseconds, unsigned long divisor) {
 bool Interval::elapsed() {
   unsigned long now = millis() / divisor;
   if ((now - lastMilliseconds) >= milliseconds) {
-    lastMilliseconds = now;
+    reset();
     return true;
   }
   
   return false;
+}
+
+void Interval::reset() {
+  lastMilliseconds = millis() / divisor;
 }

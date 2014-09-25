@@ -12,6 +12,7 @@ class Interval {
   public:
     Interval(unsigned long milliseconds, unsigned long divisor);
     bool elapsed();
+    void reset();
 };
 
 #endif
