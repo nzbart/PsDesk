@@ -43,3 +43,4 @@ int Sonar::GetLastMeasurement() {
   measurementAvailable = false;
   return measurement;
 }
+

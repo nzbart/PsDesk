@@ -28,9 +28,9 @@
 #define SONAR_ECHO_PIN 7
 
 #define TIMER_DIVISOR 64
-#define K_P 1.2
-#define K_I 0.8
-#define K_D 0.6
+#define K_P 1.7
+#define K_I 1.2
+#define K_D 1.0
 #define OUT_OF_LEVEL_TRIPLEVEL 5
 #define OUT_OF_LEVEL_TRIPTIME 500
 
@@ -276,4 +276,5 @@ double EEPROM_readDouble(int ee)
         *p++ = EEPROM.read(ee++);
     return value;
 }
+
 

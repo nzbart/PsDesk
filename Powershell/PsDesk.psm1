@@ -12,7 +12,7 @@ function Expect($port, $what) {
 
 function Connect-Desk() {
     $port.BaudRate = 19200
-    $port.PortName = "COM7"
+    $port.PortName = "COM4"
     $port.DataBits = 8;
     $port.Parity = [System.IO.Ports.Parity]::None;
     $port.StopBits = 1;

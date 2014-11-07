@@ -16,3 +16,4 @@ class Interval {
 };
 
 #endif
+

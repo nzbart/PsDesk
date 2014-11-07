@@ -19,3 +19,4 @@ bool Interval::elapsed() {
 void Interval::reset() {
   lastMilliseconds = millis() / divisor;
 }
+
