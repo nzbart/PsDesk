@@ -46,7 +46,7 @@ MotorDriver rightMotor(RIGHT_MOTOR_ENABLE_PIN_A, RIGHT_MOTOR_ENABLE_PIN_B,
 
 Sonar sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN);
 
-byte minSpeed = 127, maxSpeed = 255;
+byte minUpSpeed = 127, maxUpSpeed = 255, minDownSpeed = 63, maxDownSpeed = 127;
 int moveDirection = 0;
 bool moving = false;
 double currentLevel = 0;
@@ -88,6 +88,22 @@ void stopMove() {
   moveDirection = 0;
 }
 
+int getMinSpeed(int direction) {
+  if (moveDirection > 0) {
+    return minUpSpeed;
+  } else {
+    return minDownSpeed;
+  }
+}
+
+int getMaxSpeed(int direction) {
+  if (moveDirection > 0) {
+    return maxUpSpeed;
+  } else {
+    return maxDownSpeed;
+  }
+}
+
 void setMove() {
   int direction = 0;
   if (height < desiredHeight) {
@@ -100,8 +116,8 @@ void setMove() {
   }
   
   moveDirection = direction;
-  leftMotor.Move(direction, maxSpeed);
-  rightMotor.Move(direction, maxSpeed);
+  leftMotor.Move(direction, getMaxSpeed(direction));
+  rightMotor.Move(direction, getMaxSpeed(direction));
   delay(200);
   moving = true;
 }
@@ -185,19 +201,14 @@ void loop()
     
     levelBias = leftLevelBias - rightLevelBias;
     
+    int minSpeed = getMinSpeed(moveDirection);
+    int maxSpeed = getMaxSpeed(moveDirection);
+       
     int avgSpeed = (minSpeed + maxSpeed) / 2;
     int leftSpeed = constrain(avgSpeed + (moveDirection * levelBias), minSpeed, maxSpeed);
     int rightSpeed = constrain(avgSpeed - (moveDirection * levelBias), minSpeed, maxSpeed);
     leftMotor.Move(moveDirection, leftSpeed);
     rightMotor.Move(moveDirection, rightSpeed);
-    /*
-    String s = "l=";
-    s += (int)leftSpeed;
-    s += ", r=";
-    s += (int)rightSpeed;
-    s += ", bias=";
-    s += (int)levelBias;
-    Serial.println(s);*/
   }
   
   if (moving) {
@@ -276,5 +287,4 @@ double EEPROM_readDouble(int ee)
         *p++ = EEPROM.read(ee++);
     return value;
 }
-
 
