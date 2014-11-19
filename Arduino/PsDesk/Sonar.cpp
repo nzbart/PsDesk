@@ -2,7 +2,7 @@
 #include <Wire.h>
 #include "Interval.h"
 
-Interval pingInterval(100, 64);
+Interval pingInterval(50, 64);
 unsigned long measurement = 0;
 bool measuring = false;
 unsigned long initialMicros = 0;

@@ -28,9 +28,9 @@
 #define SONAR_ECHO_PIN 7
 
 #define TIMER_DIVISOR 64
-#define K_P 1.7
-#define K_I 1.2
-#define K_D 1.0
+#define K_P 2.0
+#define K_I 2.0
+#define K_D 2.0
 #define OUT_OF_LEVEL_TRIPLEVEL 5
 #define OUT_OF_LEVEL_TRIPTIME 500
 
@@ -46,9 +46,10 @@ MotorDriver rightMotor(RIGHT_MOTOR_ENABLE_PIN_A, RIGHT_MOTOR_ENABLE_PIN_B,
 
 Sonar sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN);
 
-byte minUpSpeed = 127, maxUpSpeed = 255, minDownSpeed = 63, maxDownSpeed = 127;
+byte minUpSpeed = 185, maxUpSpeed = 225, minDownSpeed = 120, maxDownSpeed = 160;
 int moveDirection = 0;
 bool moving = false;
+double currentHeight = 0;
 double currentLevel = 0;
 double desiredLevel = readDesiredLevelFromEeprom();
 double leftLevelBias = 0;
@@ -60,7 +61,7 @@ unsigned long desiredHeight = 0;
 
 Interval pidInterval(50, TIMER_DIVISOR);
 
-PID leftPID(&currentLevel, &leftLevelBias, &desiredLevel, K_P, K_I, K_D, DIRECT);
+PID leftPID(&currentLevel, &rightLevelBias, &desiredLevel, K_P, K_I, K_D, DIRECT);
 PID rightPID(&currentLevel, &rightLevelBias, &desiredLevel, K_P, K_I, K_D, REVERSE);
 
 void setup()
@@ -75,6 +76,14 @@ void setup()
   Serial.begin(19200);
   analogReference(EXTERNAL);
   
+  resetPID();
+ 
+}
+
+void resetPID() 
+{
+  leftPID = PID(&currentLevel, &leftLevelBias, &desiredLevel, K_P, K_I, K_D, DIRECT);
+  rightPID = PID(&currentLevel, &rightLevelBias, &desiredLevel, K_P, K_I, K_D, REVERSE);
   leftPID.SetOutputLimits(0, 40);
   leftPID.SetMode(AUTOMATIC); 
   rightPID.SetOutputLimits(0, 40);
@@ -105,6 +114,8 @@ int getMaxSpeed(int direction) {
 }
 
 void setMove() {
+  resetPID();
+  
   int direction = 0;
   if (height < desiredHeight) {
     direction = 1;
@@ -123,6 +134,7 @@ void setMove() {
 }
 
 bool writeLevelInfo = false;
+bool writeHeightInfo = false;
 Interval outOfLevelCheckInterval(OUT_OF_LEVEL_TRIPTIME, 64);
 
 void loop()
@@ -133,12 +145,6 @@ void loop()
   sonar.Run();
   if (sonar.MeasurementAvailable()) {
     height = sonar.GetLastMeasurement();
-    
-    if (writeLevelInfo) {
-      String l = "SONAR=";
-      l += height;
-      Serial.println(l);
-    }
   }
   
   while (Serial.available() > 0) {
@@ -180,6 +186,16 @@ void loop()
         desiredLevel = readDesiredLevelFromEeprom();
         s = String("OK: DesiredLevel=") + desiredLevel + " DesiredHeight=" + desiredHeight;
         Serial.println(s);       
+        break;
+        
+      case 'J': // Feed height data continuously
+        writeHeightInfo = true;
+        Serial.println("OK: HeightDataOutputOn");
+        break;
+        
+      case 'K': // Stop feeding height data
+        writeHeightInfo = false;
+        Serial.println("OK: HeightDataOutputOff");
         break;
         
       default:
@@ -234,6 +250,8 @@ void loop()
 
 unsigned long accValues = 0;
 unsigned long accCount = 0;
+unsigned long heightValues = 0;
+unsigned long heightCount = 0;
 Interval accReadInterval(5, TIMER_DIVISOR);
 Interval accCalcInterval(100, TIMER_DIVISOR);
 Interval heartbeatInterval(1000, TIMER_DIVISOR);
@@ -243,16 +261,28 @@ void heartbeat(bool writeLevelInfo) {
     int val = analogRead(ACCELEROMETER_SENSE_PIN);
     accCount++;
     accValues += val;
+    
+    heightCount++;
+    heightValues += height;
   }
   
   if (accCalcInterval.elapsed()) {
     currentLevel = (double)accValues / (double)accCount;
     accCount = 0;
     accValues = 0;
+    currentHeight = (double)heightValues / (double)heightCount;
+    heightValues = 0;
+    heightCount = 0;
     
     if (writeLevelInfo) {
       String s("LEVEL=");
       s += currentLevel;
+      Serial.println(s);
+    }
+    
+    if (writeHeightInfo) {
+      String s("HEIGHT=");
+      s += currentHeight;
       Serial.println(s);
     }
   }
