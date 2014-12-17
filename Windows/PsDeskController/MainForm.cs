@@ -13,6 +13,7 @@ namespace PsDeskController
     public partial class MainForm : Form
     {
         private DeskController _controller;
+        private AutoUpDown _autoUpDown;
 
         private delegate void StatusUpdateDelegate(string newStatus);
 
@@ -30,6 +31,20 @@ namespace PsDeskController
 
                 StatusLabel.Text = args.NewStatus;
             };
+
+            _autoUpDown = new AutoUpDown(_controller, FlashWindow);
+        }
+
+        private delegate void FlashWindowDelegate();
+        private void FlashWindow()
+        {
+            if (InvokeRequired)
+            {
+                Invoke(new FlashWindowDelegate(FlashWindow));
+                return;
+            }
+
+            PsDeskController.FlashWindow.Flash(this, 5);
         }
 
         private void AllUpButton_Click(object sender, EventArgs e)
@@ -65,6 +80,11 @@ namespace PsDeskController
         private void DownButton_MouseUp(object sender, MouseEventArgs e)
         {
             _controller.StopImmediately();
+        }
+
+        private void upDownEnabled_CheckedChanged(object sender, EventArgs e)
+        {
+            _autoUpDown.SetMode(upDownEnabled.Checked, (int)upTimeSpinner.Value, (int)downTimeSpinner.Value);
         }
     }
 }
