@@ -1,15 +1,4 @@
-#include <Fuzzy.h>
-#include <FuzzyComposition.h>
-#include <FuzzyInput.h>
-#include <FuzzyIO.h>
-#include <FuzzyOutput.h>
-#include <FuzzyRule.h>
-#include <FuzzyRuleAntecedent.h>
-#include <FuzzyRuleConsequent.h>
-#include <FuzzySet.h>
-
 #include <Wire.h>
-#include <PID_v1.h>
 #include <EEPROM.h>
 #include "MotorDriver.h"
 #include "Interval.h"
@@ -53,7 +42,7 @@ RIGHT_MOTOR_REVERSED);
 
 Sonar sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN);
 
-double upSpeedFactor = 0.85, downSpeedFactor = 0.75;
+double upSpeedFactor = 1, downSpeedFactor = 0.75;
 int moveDirection = 0;
 bool moving = false;
 double currentHeight = 0;
@@ -63,8 +52,6 @@ double desiredLevel = readDesiredLevelFromEeprom();
 unsigned long height = 0;
 unsigned long desiredHeight = 0;
 
-Fuzzy* fuzzy = new Fuzzy();
-
 void setup()
 {   
   // Set PWM frequency to 62.5kHz
@@ -72,62 +59,10 @@ void setup()
   TCCR1B = TCCR1B & B11111000 | B00000001;
   TCCR2B = TCCR2B & B11111000 | B00000001;
 
-  // Fuzzy input
-  FuzzySet* tooFarLeft  = new FuzzySet(-5, -5, -4, -3);
-  FuzzySet* tooLeft     = new FuzzySet(-4, -3, -1, 0);
-  FuzzySet* good        = new FuzzySet(-1, 0, 0, 1);
-  FuzzySet* tooRight    = new FuzzySet(0, 1, 3, 4);
-  FuzzySet* tooFarRight = new FuzzySet(3, 4, 5, 5);
-  FuzzyInput* level = new FuzzyInput(1);
-  level->addFuzzySet(tooFarLeft);
-  level->addFuzzySet(tooLeft);
-  level->addFuzzySet(good);
-  level->addFuzzySet(tooRight);
-  level->addFuzzySet(tooFarRight);  
-  fuzzy->addFuzzyInput(level);
-
-  // Fuzzy output
-  FuzzySet* off = new FuzzySet(0, 0, 127, 191);
-  FuzzySet* slow = new FuzzySet(63, 127, 191, 255);
-  FuzzySet* fast = new FuzzySet(127, 191, 255, 255);
-
-  FuzzyOutput* leftMotor = new FuzzyOutput(1);
-  leftMotor->addFuzzySet(off);
-  leftMotor->addFuzzySet(slow);
-  leftMotor->addFuzzySet(fast);
-  fuzzy->addFuzzyOutput(leftMotor);
-
-  FuzzyOutput* rightMotor = new FuzzyOutput(2);
-  rightMotor->addFuzzySet(off);
-  rightMotor->addFuzzySet(slow);
-  rightMotor->addFuzzySet(fast);
-  fuzzy->addFuzzyOutput(rightMotor);
-
-  // Rules
-  addFuzzyMotorRule(fuzzy, tooFarLeft, off, fast, 10);
-  addFuzzyMotorRule(fuzzy, tooLeft, slow, fast, 20);
-  addFuzzyMotorRule(fuzzy, good, fast, fast, 30);
-  addFuzzyMotorRule(fuzzy, tooRight, fast, slow, 40);
-  addFuzzyMotorRule(fuzzy, tooFarRight, fast, off, 50);
-
   stopMove();
 
   Serial.begin(19200);
   analogReference(EXTERNAL);
-}
-
-void addFuzzyMotorRule(Fuzzy* fuzz, FuzzySet* antecedent, FuzzySet* leftConsequent, FuzzySet* rightConsequent, int ruleSetNumber) {
-  addFuzzyRule(fuzz, antecedent, leftConsequent, ruleSetNumber + 1);
-  addFuzzyRule(fuzz, antecedent, rightConsequent, ruleSetNumber + 2);
-}
-
-void addFuzzyRule(Fuzzy* fuzz, FuzzySet* antecedent, FuzzySet* consequent, int ruleNumber) {
-  FuzzyRuleAntecedent* ifThis = new FuzzyRuleAntecedent();
-  ifThis->joinSingle(antecedent);
-  FuzzyRuleConsequent* thenThat = new FuzzyRuleConsequent();
-  thenThat->addOutput(consequent);
-  FuzzyRule* rule = new FuzzyRule(ruleNumber, ifThis, thenThat);
-  fuzz->addFuzzyRule(rule);
 }
 
 void stopMove() {
@@ -137,17 +72,24 @@ void stopMove() {
   moveDirection = 0;
 }
 
-byte getSpeed(byte desired, int direction) {
-  double speedFactor = 1;
-  
-  if (moveDirection > 0) {
-    speedFactor = upSpeedFactor;
-  } 
-  else {
-    speedFactor = downSpeedFactor;
+void calcSpeed(int direction, double levelError, byte& leftSpeedResult, byte& rightSpeedResult) {
+  if (direction < 0) {
+    levelError *= -1;
   }
   
-  return (byte)((double)desired * speedFactor);
+  // Calculate speed drop based on level error
+  double absError = abs(levelError);
+  if (absError > 2) absError = 2;
+  double clampFactor = (absError / 2) * 255.0;
+  
+  // Assume going UP right now.
+  // Positive error means LEFT is too low so RIGHT must be clamped.
+  double leftSpeed = 255 - (levelError < 0 ? clampFactor : 0);
+  double rightSpeed = 255 - (levelError > 0 ? clampFactor : 0);  
+
+  double speedFactor = moveDirection > 0 ? upSpeedFactor : downSpeedFactor;
+  leftSpeedResult = (byte)(speedFactor * leftSpeed);
+  rightSpeedResult = (byte)(speedFactor * rightSpeed); 
 }
 
 void setMove() {
@@ -163,8 +105,8 @@ void setMove() {
   }
 
   moveDirection = direction;
-  leftMotor.Move(direction, getSpeed(255, moveDirection));
-  rightMotor.Move(direction, getSpeed(255, moveDirection));
+  leftMotor.Move(direction, 127 * moveDirection);
+  rightMotor.Move(direction, 127 * moveDirection);
   delay(200);
   moving = true;
 }
@@ -243,17 +185,13 @@ void loop()
   heartbeat(writeLevelInfo);
 
   if (moving) {
-    currentLevel;
-    desiredLevel;
     double level = (desiredLevel - currentLevel);
 
-    fuzzy->setInput(1, level);
-    fuzzy->fuzzify();
-    
-    float leftMotorSpeed = getSpeed(fuzzy->defuzzify(1), moveDirection);
-    float rightMotorSpeed = getSpeed(fuzzy->defuzzify(2), moveDirection);
-    leftMotor.Move(moveDirection, leftMotorSpeed);
-    rightMotor.Move(moveDirection, rightMotorSpeed);
+    byte leftSpeed = 0, rightSpeed = 0;
+    calcSpeed(moveDirection, level, leftSpeed, rightSpeed);
+  
+    leftMotor.Move(moveDirection, leftSpeed);
+    rightMotor.Move(moveDirection, rightSpeed);
   }
 
   if (moving) {
@@ -283,8 +221,8 @@ unsigned long accValues = 0;
 unsigned long accCount = 0;
 unsigned long heightValues = 0;
 unsigned long heightCount = 0;
-Interval accReadInterval(5, TIMER_DIVISOR);
-Interval accCalcInterval(100, TIMER_DIVISOR);
+Interval accReadInterval(1, TIMER_DIVISOR);
+Interval accCalcInterval(150, TIMER_DIVISOR);
 Interval heartbeatInterval(1000, TIMER_DIVISOR);
 
 void heartbeat(bool writeLevelInfo) {
@@ -306,8 +244,12 @@ void heartbeat(bool writeLevelInfo) {
     heightCount = 0;
 
     if (writeLevelInfo) {
-      String s("LEVEL=");
+      String s("L=");
       s += currentLevel;
+      s += " D=";
+      s += desiredLevel;
+      s += " E=";
+      s += (desiredLevel - currentLevel);
       Serial.println(s);
     }
 
