@@ -2,7 +2,6 @@
 #include <EEPROM.h>
 #include "MotorDriver.h"
 #include "Interval.h"
-#include "Sonar.h"
 
 #define LEFT_MOTOR_REVERSED false
 #define RIGHT_MOTOR_REVERSED true
@@ -23,9 +22,6 @@
 
 #define ACCELEROMETER_SENSE_PIN 5
 
-#define SONAR_TRIGGER_PIN 2
-#define SONAR_ECHO_PIN 7
-
 #define TIMER_DIVISOR 64
 #define OUT_OF_LEVEL_TRIPLEVEL 5
 #define OUT_OF_LEVEL_TRIPTIME 500
@@ -39,8 +35,6 @@ MotorDriver rightMotor(RIGHT_MOTOR_ENABLE_PIN_A, RIGHT_MOTOR_ENABLE_PIN_B,
 RIGHT_MOTOR_ISENSE_PIN_A, RIGHT_MOTOR_ISENSE_PIN_B, 
 RIGHT_MOTOR_PWN_PIN_A, RIGHT_MOTOR_PWN_PIN_B, 
 RIGHT_MOTOR_REVERSED);
-
-Sonar sonar(SONAR_TRIGGER_PIN, SONAR_ECHO_PIN);
 
 double upSpeedFactor = 1, downSpeedFactor = 0.75;
 int moveDirection = 0;
@@ -119,11 +113,6 @@ void loop()
 {
   leftMotor.Sense();
   rightMotor.Sense();
-
-  sonar.Run();
-  if (sonar.MeasurementAvailable()) {
-    height = sonar.GetLastMeasurement();
-  }
 
   while (Serial.available() > 0) {
     byte cmd = Serial.read();
