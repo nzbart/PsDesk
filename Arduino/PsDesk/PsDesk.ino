@@ -23,6 +23,7 @@
 int ACCELEROMETER_CS_PIN=10;        //any digital pin
 
 #define OUT_OF_LEVEL_TRIPLEVEL 20
+const int OUT_OF_LEVEL_TRIPCOUNT = 10;
 
 MotorDriver leftMotor(LEFT_MOTOR_ENABLE_PIN_A, LEFT_MOTOR_ENABLE_PIN_B,
 LEFT_MOTOR_ISENSE_PIN_A, LEFT_MOTOR_ISENSE_PIN_B,
@@ -34,8 +35,8 @@ RIGHT_MOTOR_ISENSE_PIN_A, RIGHT_MOTOR_ISENSE_PIN_B,
 RIGHT_MOTOR_PWM_PIN_A, RIGHT_MOTOR_PWM_PIN_B, 
 RIGHT_MOTOR_REVERSED);
 
-#define MAX_INT 32767
-int accelerometerLevel = MAX_INT;
+const int UNCALIBRATED = 32767;
+int accelerometerLevel = UNCALIBRATED;
 Adxl345Accelerometer accelerometer(ACCELEROMETER_CS_PIN);
 
 void setup()
@@ -55,6 +56,9 @@ void stopMove() {
   rightMotor.StopMove();
 }
 
+//state
+int numberOfSequentialAccelerometerTrips = 0;
+
 void loop()
 {
   while (Serial.available() > 0) {
@@ -69,14 +73,14 @@ void loop()
 
     case 'u': // Move up
       Serial.println("Moving up...");
-      accelerometerLevel = MAX_INT;
+      accelerometerLevel = UNCALIBRATED;
       leftMotor.Move(1, 255);
       rightMotor.Move(1, 255);
       break;
 
     case 'd': // Move down
       Serial.println("Moving down...");
-      accelerometerLevel = MAX_INT;     
+      accelerometerLevel = UNCALIBRATED;     
       leftMotor.Move(-1, 255);
       rightMotor.Move(-1, 255);
       break;
@@ -89,12 +93,19 @@ void loop()
 
   const int x = accelerometer.GetX();
 
-  if(accelerometerLevel == MAX_INT)
-    accelerometerLevel = x;  //calibrate
+  if(accelerometerLevel == UNCALIBRATED)
+  {
+    accelerometerLevel = x;
+    numberOfSequentialAccelerometerTrips = 0;
+  }
 
   if(abs(accelerometerLevel - x) > OUT_OF_LEVEL_TRIPLEVEL)
   {
-   stopMove(); 
-   Serial.println("EMERGENCY STOP INITIATED BY ACCELEROMETER!");
+    ++numberOfSequentialAccelerometerTrips;
+    if(numberOfSequentialAccelerometerTrips == OUT_OF_LEVEL_TRIPCOUNT) 
+    {
+       stopMove(); 
+       Serial.println("EMERGENCY STOP INITIATED BY ACCELEROMETER!");
+    }
   }
 }
