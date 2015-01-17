@@ -59,7 +59,7 @@ void stopMove() {
 //state
 int numberOfSequentialAccelerometerTrips = 0;
 
-void loop()
+void ProcessUserCommands()
 {
   while (Serial.available() > 0) {
     byte cmd = Serial.read();
@@ -90,7 +90,10 @@ void loop()
       break;
     }
   }
+}
 
+void RunAccelerometerLevelCheck()
+{
   const int x = accelerometer.GetX();
 
   if(accelerometerLevel == UNCALIBRATED)
@@ -108,4 +111,10 @@ void loop()
        Serial.println("EMERGENCY STOP INITIATED BY ACCELEROMETER!");
     }
   }
+}
+
+void loop()
+{
+  ProcessUserCommands();
+  RunAccelerometerLevelCheck();
 }
