@@ -57,4 +57,6 @@ int Adxl345Accelerometer::GetX()
     //The ADXL345 gives 10-bit acceleration values, but they are stored as bytes (8-bits). To get the full value, two bytes must be combined for each axis.
     //The X value is stored in values[0] and values[1].
     const int x = ((int)values[1]<<8)|(int)values[0];
+    
+    return x;
 }
