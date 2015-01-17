@@ -3,8 +3,8 @@
 #include "MotorDriver.h"
 #include "Adxl345Accelerometer.h"
 
-#define LEFT_MOTOR_REVERSED true
-#define RIGHT_MOTOR_REVERSED true
+#define LEFT_MOTOR_REVERSED false
+#define RIGHT_MOTOR_REVERSED false
 
 #define LEFT_MOTOR_ENABLE_PIN_A 8  //any digital pin
 #define LEFT_MOTOR_ENABLE_PIN_B 7  //any digital pin
