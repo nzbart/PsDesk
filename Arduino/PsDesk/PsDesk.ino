@@ -23,6 +23,7 @@
 #define RIGHT_MOTOR_PWM_PIN_B 3     //PWM capable digital; usually has a tilde next to the pin on the PCB
 
 int ACCELEROMETER_CS_PIN=10;        //any digital pin
+//Other pins: SCL -> 13, SDA -> 11, SDO -> 12
 
 #define OUT_OF_LEVEL_TRIPLEVEL 10
 const int OUT_OF_LEVEL_TRIPCOUNT = 10;
