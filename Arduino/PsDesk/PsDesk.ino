@@ -1,3 +1,5 @@
+//TODO: accelerometer self test / sanity check to make sure it is connected and working
+
 #include <Wire.h>
 #include <SPI.h>  //I have no idea why Adxl345Accelerometer.cpp won't compile unless I put this include here!
 #include "MotorDriver.h"
