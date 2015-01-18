@@ -42,8 +42,7 @@ Adxl345Accelerometer::Adxl345Accelerometer(int chipSelectPin)
     SPI.setDataMode(SPI_MODE3);
     pinMode(_chipSelectPin, OUTPUT);
     digitalWrite(_chipSelectPin, HIGH);
-    //Put the ADXL345 into +/- 4G range by writing the value 0x01 to the DATA_FORMAT register.
-    writeRegister(_chipSelectPin, DATA_FORMAT, 0x01);
+    writeRegister(_chipSelectPin, DATA_FORMAT, 0x00);
     //Put the ADXL345 into Measurement Mode by writing 0x08 to the POWER_CTL register.
     writeRegister(_chipSelectPin, POWER_CTL, 0x08);  //Measurement mode  
 }
