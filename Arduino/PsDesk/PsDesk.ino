@@ -22,7 +22,7 @@
 
 int ACCELEROMETER_CS_PIN=10;        //any digital pin
 
-#define OUT_OF_LEVEL_TRIPLEVEL 20
+#define OUT_OF_LEVEL_TRIPLEVEL 10
 const int OUT_OF_LEVEL_TRIPCOUNT = 10;
 
 MotorDriver leftMotor(LEFT_MOTOR_ENABLE_PIN_A, LEFT_MOTOR_ENABLE_PIN_B,
