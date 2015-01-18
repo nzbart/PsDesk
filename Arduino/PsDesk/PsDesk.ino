@@ -40,6 +40,7 @@ RIGHT_MOTOR_REVERSED);
 
 const int UNCALIBRATED = 32767;
 int accelerometerLevel = UNCALIBRATED;
+int sequentialZeroReadings = 0;
 Adxl345Accelerometer accelerometer(ACCELEROMETER_CS_PIN);
 
 void setup()
@@ -119,6 +120,17 @@ void RunAccelerometerLevelCheck()
 {
   const int x = accelerometer.GetX();
 
+  if(x == 0) {
+    ++sequentialZeroReadings;
+    if(sequentialZeroReadings > 100) {
+       stopMove(); 
+       Serial.println("ERROR: THE ACCELEROMETER DOES NOT APPEAR TO BE WORKING!");
+    }
+  }
+  else {
+    sequentialZeroReadings = 0;
+  }
+
   if(accelerometerLevel == UNCALIBRATED)
   {
     accelerometerLevel = x;
@@ -131,7 +143,7 @@ void RunAccelerometerLevelCheck()
     if(numberOfSequentialAccelerometerTrips == OUT_OF_LEVEL_TRIPCOUNT) 
     {
        stopMove(); 
-       Serial.println("EMERGENCY STOP INITIATED BY ACCELEROMETER!");
+       Serial.println("ERROR: EMERGENCY STOP INITIATED BY ACCELEROMETER!");
     }
   }
 }
