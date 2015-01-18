@@ -85,6 +85,26 @@ void ProcessUserCommands()
       rightMotor.Move(-1, 255);
       break;
 
+    case 'L':
+      Serial.println("Moving left motor up...");
+      leftMotor.Move(1, 255);
+      break;
+
+    case 'l':
+      Serial.println("Moving left motor down...");
+      leftMotor.Move(-1, 255);
+      break;
+
+    case 'R':
+      Serial.println("Moving right motor up...");
+      rightMotor.Move(1, 255);
+      break;
+
+    case 'r':
+      Serial.println("Moving right motor down...");
+      rightMotor.Move(-1, 255);
+      break;
+
     default:
       Serial.println("Unrecognised user command.");
       break;
