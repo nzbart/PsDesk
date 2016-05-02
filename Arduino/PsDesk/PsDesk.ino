@@ -65,6 +65,8 @@ int numberOfSequentialAccelerometerTrips = 0;
 
 void ProcessUserCommands()
 {
+  const int speed = 180;
+  
   while (Serial.available() > 0) {
     byte cmd = Serial.read();
     String s;
@@ -78,35 +80,35 @@ void ProcessUserCommands()
     case 'u': // Move up
       Serial.println("Moving up...");
       accelerometerLevel = UNCALIBRATED;
-      leftMotor.Move(1, 255);
-      rightMotor.Move(1, 255);
+      leftMotor.Move(1, speed);
+      rightMotor.Move(1, speed);
       break;
 
     case 'd': // Move down
       Serial.println("Moving down...");
       accelerometerLevel = UNCALIBRATED;     
-      leftMotor.Move(-1, 255);
-      rightMotor.Move(-1, 255);
+      leftMotor.Move(-1, speed);
+      rightMotor.Move(-1, speed);
       break;
 
     case 'L':
       Serial.println("Moving left motor up...");
-      leftMotor.Move(1, 255);
+      leftMotor.Move(1, speed);
       break;
 
     case 'l':
       Serial.println("Moving left motor down...");
-      leftMotor.Move(-1, 255);
+      leftMotor.Move(-1, speed);
       break;
 
     case 'R':
       Serial.println("Moving right motor up...");
-      rightMotor.Move(1, 255);
+      rightMotor.Move(1, speed);
       break;
 
     case 'r':
       Serial.println("Moving right motor down...");
-      rightMotor.Move(-1, 255);
+      rightMotor.Move(-1, speed);
       break;
 
     default:
